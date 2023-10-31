@@ -1,0 +1,112 @@
+<head>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-gray-100 py-20">
+  <div class="root mx-auto p-8 max-w-screen-lg bg-white rounded-lg shadow-lg flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
+    <!-- Search Inputs & Button Section -->
+    <div class="md:w-1/2 flex flex-col space-y-4">
+      <h2 class="text-2xl font-bold mb-4">Search</h2>
+      <input class="song w-full py-2 px-4 border border-gray-300 rounded-md" placeholder="Song Name" type="text" />
+      <input class="artist w-full py-2 px-4 border border-gray-300 rounded-md" placeholder="Artist Name" type="text" />
+      <button class="submit bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded transition duration-200 ease-in-out w-full" type="submit">Search</button>
+      <ul class="lyrics-suggestions mt-4 border-t pt-4 space-y-2">
+      </ul>
+
+    </div>
+    <!-- Lyrics Display Section -->
+    <div class="md:w-1/2 flex flex-col space-y-4">
+      <h2 class="text-2xl font-bold mb-4">Lyrics</h2>
+      <pre class="lyrics p-4 w-full bg-gray-100 rounded-md overflow-y-auto" style="max-height: 400px;"></pre>
+    </div>
+  </div>
+
+  <!-- Script Section -->
+  <script>
+    function updateURL(songName = "", artistName = "") {
+      return `https://api.musixmatch.com/ws/1.1/matcher.lyrics.get?format=jsonp&callback=searchLyrics&q_track=${songName}&q_artist=${artistName}&apikey=c0f4d5815f823ca8151ab36a7323a5dd`;
+    }
+    let submitButton = document.querySelector(".submit");
+    submitButton.onclick = function() {
+      //getting song name and replacing space with %20
+      let song_name = document.querySelector(".song").value;
+      song_name = song_name.replace(/ /g, "%20");
+      //getting artist name and replacing space with %20
+      let artist_name = document.querySelector(".artist").value;
+      artist_name = artist_name.replace(/ /g, "%20");
+      // getting new url
+      let newURL = updateURL(song_name, artist_name);
+      // console.log(newURL);
+      updateScript(newURL);
+      document.querySelector(".song").value = "";
+      document.querySelector(".artist").value = "";
+    };
+
+    function updateScript(url) {
+      let newScript = document.createElement("script");
+      newScript.src = url;
+      newScript.setAttribute("id", "head-script");
+      let oldScript = document.getElementById("head-script");
+      let head = document.getElementsByTagName("head")[0];
+      if (oldScript === null) {
+        head.appendChild(newScript);
+      } else {
+        head.replaceChild(newScript, oldScript);
+      }
+    }
+
+    function searchLyrics(object) {
+      if (object.message.header.status_code === 404) {
+        document.querySelector(".lyrics").textContent = "lyrics not found";
+      } else {
+        document.querySelector(".lyrics").textContent =
+          object.message.body.lyrics.lyrics_body;
+      }
+    }
+
+    function getSongSuggestions(query) {
+      let url = `https://api.musixmatch.com/ws/1.1/track.search?format=jsonp&callback=displaySuggestions&q=${query}&s_track_rating=DESC&apikey=c0f4d5815f823ca8151ab36a7323a5dd`;
+      let script = document.createElement("script");
+      script.src = url;
+      document.body.appendChild(script);
+    }
+
+    function displaySuggestions(data) {
+      let suggestionsList = document.querySelector(".suggestions");
+      suggestionsList.innerHTML = ""; // Clear previous suggestions
+      let tracks = data.message.body.track_list;
+      tracks.forEach((track) => {
+        let listItem = document.createElement("li");
+        listItem.innerText =
+          track.track.artist_name + " - " + track.track.track_name;
+        listItem.className = "py-1 px-2 hover:bg-gray-200 cursor-pointer";
+        listItem.onclick = function() {
+          document.querySelector(".song").value = track.track.track_name;
+          document.querySelector(".artist").value = track.track.artist_name;
+          suggestionsList.innerHTML = ""; // Clear suggestions after selection
+          // Fetching the lyrics right away
+          let track_id = track.track.track_id;
+          let lyrics_url = `https://api.musixmatch.com/ws/1.1/track.lyrics.get?format=jsonp&callback=searchLyrics&track_id=${track_id}&apikey=c0f4d5815f823ca8151ab36a7323a5dd`;
+          let script = document.createElement("script");
+          script.src = lyrics_url;
+          document.body.appendChild(script);
+        };
+        suggestionsList.appendChild(listItem);
+      });
+    }
+    document.querySelector(".song").addEventListener("input", function() {
+      if (this.value.length > 2) {
+        getSongSuggestions(this.value);
+      }
+    });
+    document.querySelector(".artist").addEventListener("input", function() {
+      if (this.value.length > 2) {
+        getSongSuggestions(this.value);
+      }
+    });
+    let suggestionsContainer = document.createElement("ul");
+    suggestionsContainer.className =
+      "suggestions w-full mt-4 border border-gray-300 rounded-md";
+    document.querySelector(".root").appendChild(suggestionsContainer);
+  </script>
+</body>
